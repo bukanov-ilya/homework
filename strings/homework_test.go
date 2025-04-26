@@ -3,7 +3,6 @@ package main
 import (
 	"reflect"
 	"slices"
-	"sync"
 	"testing"
 	"unsafe"
 
@@ -13,7 +12,6 @@ import (
 type COWBuffer struct {
 	data []byte
 	refs *int
-	mu   *sync.Mutex
 }
 
 func NewCOWBuffer(data []byte) COWBuffer {
@@ -21,38 +19,22 @@ func NewCOWBuffer(data []byte) COWBuffer {
 	return COWBuffer{
 		refs: &ref,
 		data: data,
-		mu:   &sync.Mutex{},
 	}
 }
 
 func (b *COWBuffer) Clone() COWBuffer {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	*b.refs++
 	return COWBuffer{
 		data: b.data,
 		refs: b.refs,
-		mu:   b.mu,
 	}
 }
 
 func (b *COWBuffer) Close() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	*b.refs--
-	if *b.refs == 0 {
-		b.data = nil
-		b.refs = nil
-		b.mu = nil
-	}
 }
 
 func (b *COWBuffer) Update(index int, value byte) bool {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	if index < 0 || index >= len(b.data) {
 		return false
 	}
@@ -71,9 +53,6 @@ func (b *COWBuffer) Update(index int, value byte) bool {
 }
 
 func (b *COWBuffer) String() string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	return unsafe.String(unsafe.SliceData(b.data), len(b.data))
 }
 
