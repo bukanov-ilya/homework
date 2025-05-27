@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"testing"
 
@@ -18,17 +17,22 @@ type MessageService struct {
 }
 
 type Container struct {
-	constructors map[string]interface{}
+	constructors map[string]func() interface{}
 }
 
 func NewContainer() *Container {
 	return &Container{
-		constructors: make(map[string]interface{}),
+		constructors: make(map[string]func() interface{}),
 	}
 }
 
 func (c *Container) RegisterType(name string, constructor interface{}) {
-	c.constructors[name] = constructor
+	constructorFunc, ok := constructor.(func() interface{})
+	if !ok {
+		panic(fmt.Sprintf("constructor for %s is not a function of type func() interface{}", name))
+	}
+
+	c.constructors[name] = constructorFunc
 }
 
 func (c *Container) Resolve(name string) (interface{}, error) {
@@ -37,12 +41,7 @@ func (c *Container) Resolve(name string) (interface{}, error) {
 		return nil, fmt.Errorf("constructor for %s not registered", name)
 	}
 
-	constructorFunc, ok := constructor.(func() interface{})
-	if !ok {
-		return nil, errors.New("constructor is not function")
-	}
-
-	return constructorFunc(), nil
+	return constructor(), nil
 }
 
 func TestDIContainer(t *testing.T) {
